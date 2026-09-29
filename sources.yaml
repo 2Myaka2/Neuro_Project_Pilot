@@ -1,7 +1,19 @@
-# После загрузки фиксируем URL, версии/commit, локальные пути и SHA256.
 thermompnn:
   repository: https://github.com/Kuhlman-Lab/ThermoMPNN
-  commit: null
-weights: []
-data: []
-splits: []
+  commit: 370f76ec62bd929f7425e311d8df04a0d094990f
+  path: external/ThermoMPNN
+weights:
+- path: external/ThermoMPNN/models/thermoMPNN_default.pt
+  sha256: af449118ccfb4e34971d802321907ed82a8a035ae80f055bf8fc56009a4a838a
+- path: external/ThermoMPNN/vanilla_model_weights/v_48_020.pt
+  sha256: c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd
+data:
+- name: Processed_K50_dG_datasets.zip
+  url: https://zenodo.org/api/records/7992926/files/Processed_K50_dG_datasets.zip/content
+  md5: f7e8c553efee734cf161ee6f2b0a09cf
+- name: AlphaFold_model_PDBs.zip
+  url: https://zenodo.org/api/records/7992926/files/AlphaFold_model_PDBs.zip/content
+  md5: c29317a75f28d008b2718316995902ef
+splits:
+- path: external/ThermoMPNN/dataset_splits/mega_splits.pkl
+  sha256: 9e06230fe8febd8f07f8fab374f153328d4bdde20b78de15ead93b39e61ca1eb
