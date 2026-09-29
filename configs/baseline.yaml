@@ -1,0 +1,6 @@
+# Заготовка параметров первого технического запуска.
+seed: 42
+split: train
+data_dir: data
+weights_dir: weights
+results_dir: results

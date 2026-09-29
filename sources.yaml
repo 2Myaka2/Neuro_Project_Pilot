@@ -1,0 +1,7 @@
+# После загрузки фиксируем URL, версии/commit, локальные пути и SHA256.
+thermompnn:
+  repository: https://github.com/Kuhlman-Lab/ThermoMPNN
+  commit: null
+weights: []
+data: []
+splits: []
