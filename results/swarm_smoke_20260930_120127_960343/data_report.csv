@@ -1,0 +1,7 @@
+protein,split,length,raw_rows,single_mutations
+1A32.pdb,train,63,1391,1195
+1AOY.pdb,train,69,1523,1287
+1E0L.pdb,train,37,1240,618
+1E6H.pdb,train,61,1744,1087
+1I6C.pdb,val,39,1048,686
+1V1C.pdb,val,65,3835,1209

@@ -1,0 +1,58 @@
+{
+  "mode": "smoke",
+  "python": "3.10.21 | packaged by conda-forge | (main, Aug 21 2026, 22:42:31) [GCC 14.4.0]",
+  "torch": "2.5.1+cpu",
+  "numpy": "2.2.6",
+  "pandas": "2.3.3",
+  "device": "cpu",
+  "seeds": [
+    42
+  ],
+  "epochs": 3,
+  "learning_rate": 0.001,
+  "hidden_dim": 32,
+  "swarm_steps": 3,
+  "models": [
+    "mlp",
+    "self",
+    "swarm"
+  ],
+  "train_names": [
+    "1A32.pdb",
+    "1AOY.pdb",
+    "1E0L.pdb",
+    "1E6H.pdb"
+  ],
+  "val_names": [
+    "1I6C.pdb",
+    "1V1C.pdb"
+  ],
+  "target": "-ddG_ML; positive = destabilizing; kcal/mol",
+  "training_loss": "MSE per protein; one protein per optimizer step",
+  "selection_metric": "validation macro MAE",
+  "csv_sha256": "0c7b2bf1f162122d83d5bb39b901cc446e436b5643684ca268f934be145d8398",
+  "splits_sha256": "9e06230fe8febd8f07f8fab374f153328d4bdde20b78de15ead93b39e61ca1eb",
+  "feature_spec": {
+    "format_version": 1,
+    "commit": "370f76ec62bd929f7425e311d8df04a0d094990f",
+    "checkpoint_sha256": "af449118ccfb4e34971d802321907ed82a8a035ae80f055bf8fc56009a4a838a",
+    "proteinmpnn_sha256": "c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd",
+    "source_sha256": {
+      "protein_mpnn_utils.py": "3bbcb4342482438bb5d4ebe6509d514490dfce804617865fa55ffdcbda2fea12",
+      "transfer_model.py": "cddf49a119316785aca7e2653d25ebc37a436fda7655a43b7f634040e6dd92e2"
+    },
+    "model_config": {
+      "hidden_dims": [
+        64,
+        32
+      ],
+      "subtract_mut": true,
+      "num_final_layers": 2,
+      "freeze_weights": true,
+      "load_pretrained": true,
+      "lightattn": true
+    },
+    "torch": "2.5.1+cpu",
+    "device": "cpu"
+  }
+}
