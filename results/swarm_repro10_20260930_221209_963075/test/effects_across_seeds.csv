@@ -1,0 +1,4 @@
+comparison,mean_gain,std_gain,seeds_second_better,seeds_first_better,seeds_nearly_equal
+self_minus_static,0.0009330990866537436,0.002461272876808372,6,4,0
+static_minus_swarm,0.0015282127274117152,0.004529644251054652,7,3,0
+self_minus_swarm,0.002461311814065459,0.004794413029662491,7,3,0
