@@ -4,6 +4,26 @@ A pilot experiment to predict changes in protein stability caused by a single am
 
 **Main result:** SWARM achieved the lowest mean test macro MAE, but a consistent advantage of repeatedly recomputing the global summary has not been established. The difference relative to the `static` control is small, and its 95% bootstrap interval includes zero.
 
+## Setup and execution
+
+Run the commands from the repository root. The environment and notebooks are configured for CPU execution.
+
+```bash
+conda env create -f environment.yml
+conda activate NeuroPP
+
+git clone https://github.com/Kuhlman-Lab/ThermoMPNN.git external/ThermoMPNN
+git -C external/ThermoMPNN checkout 370f76ec62bd929f7425e311d8df04a0d094990f
+
+mkdir -p data/megascale
+curl -fL https://zenodo.org/api/records/7992926/files/Processed_K50_dG_datasets.zip/content -o data/megascale/Processed_K50_dG_datasets.zip
+curl -fL https://zenodo.org/api/records/7992926/files/AlphaFold_model_PDBs.zip/content -o data/megascale/AlphaFold_model_PDBs.zip
+```
+
+Run notebook cells sequentially using the interpreter from the `NeuroPP` environment. `01_baseline.ipynb` is an optional technical check; `02_swarm_experiment.ipynb` contains the full experiment. Required files are extracted from the archives automatically.
+
+Trained head weights are not included in the repository. Re-evaluating the published models requires the original checkpoints; a new run performs 40 training runs. Before starting a new run, change `RUN_NAME` in the second notebook to preserve the published results in `results/swarm_final/`.
+
 ## 1. Task and sign convention
 
 The input is the sequence and structure of the original protein (WT), the substitution position, and the new amino acid. The output is a ΔΔG prediction in kcal/mol.

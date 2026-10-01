@@ -4,6 +4,26 @@
 
 **Основной результат:** SWARM получил наименьший средний test macro MAE, однако устойчивое преимущество повторного пересчёта общей сводки не установлено. Разница относительно контроля `static` мала, а её 95% bootstrap-интервал включает ноль.
 
+## Подготовка и запуск
+
+Команды выполняются из корня репозитория. Окружение и тетрадки рассчитаны на CPU.
+
+```bash
+conda env create -f environment.yml
+conda activate NeuroPP
+
+git clone https://github.com/Kuhlman-Lab/ThermoMPNN.git external/ThermoMPNN
+git -C external/ThermoMPNN checkout 370f76ec62bd929f7425e311d8df04a0d094990f
+
+mkdir -p data/megascale
+curl -fL https://zenodo.org/api/records/7992926/files/Processed_K50_dG_datasets.zip/content -o data/megascale/Processed_K50_dG_datasets.zip
+curl -fL https://zenodo.org/api/records/7992926/files/AlphaFold_model_PDBs.zip/content -o data/megascale/AlphaFold_model_PDBs.zip
+```
+
+Тетрадки запускаются последовательно с интерпретатором окружения `NeuroPP`. `01_baseline.ipynb` — необязательная техническая проверка; `02_swarm_experiment.ipynb` — полный эксперимент. Необходимые файлы извлекаются из архивов автоматически.
+
+Веса обученных голов не включены в репозиторий. Для повторной оценки опубликованных моделей нужны исходные checkpoints; новый запуск выполняет 40 обучений. Перед новым запуском измените `RUN_NAME` во второй тетрадке, чтобы сохранить опубликованные результаты в `results/swarm_final/`.
+
 ## 1. Задача и соглашение о знаке
 
 Вход — последовательность и структура исходного белка (WT), позиция замены и новая аминокислота. Выход — прогноз ΔΔG в ккал/моль.
