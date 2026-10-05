@@ -9,6 +9,68 @@ from .protocol import ARTIFACT_HASHES, THERMOMPNN_COMMIT
 from .splits import file_hash
 
 
+class FeatureProvenanceError(ValueError):
+    """Carry the failed runtime audit so callers can persist its tensor evidence."""
+
+    def __init__(self, report):
+        self.report = report
+        super().__init__(report["reason"])
+
+
+def compare_proteinmpnn_state_dict(actual, expected):
+    """Compare every stored tensor exactly, including buffers; never relax tolerances."""
+    import torch
+
+    actual_keys, expected_keys = set(actual), set(expected)
+    report = {
+        "passed": False, "compared_tensors": 0, "exact_match": False,
+        "max_abs_difference": 0.0,
+        "key_set_equal": actual_keys == expected_keys,
+        "shapes_equal": True, "dtypes_equal": True,
+        "dtype_policy": "identical torch dtype; no casting for equality",
+        "comparison": "torch.equal; no tolerance",
+        "missing_keys": sorted(expected_keys - actual_keys),
+        "unexpected_keys": sorted(actual_keys - expected_keys),
+        "mismatched_tensors": [], "nonfinite_tensors": [],
+    }
+    for key in sorted(actual_keys & expected_keys):
+        loaded, original = actual[key], expected[key]
+        if not isinstance(loaded, torch.Tensor) or not isinstance(original, torch.Tensor):
+            report["mismatched_tensors"].append({"key": key, "reason": "non-tensor state entry"})
+            continue
+        loaded, original = loaded.detach().cpu(), original.detach().cpu()
+        dtype_match = loaded.dtype == original.dtype
+        if not dtype_match:
+            report["dtypes_equal"] = False
+        if loaded.shape != original.shape:
+            report["shapes_equal"] = False
+            report["mismatched_tensors"].append({
+                "key": key, "reason": "shape mismatch",
+                "actual_shape": list(loaded.shape), "expected_shape": list(original.shape),
+                "actual_dtype": str(loaded.dtype), "expected_dtype": str(original.dtype)})
+            continue
+        report["compared_tensors"] += 1
+        finite = bool(torch.isfinite(loaded).all() and torch.isfinite(original).all())
+        if not finite:
+            report["nonfinite_tensors"].append(key)
+        values_match = torch.equal(loaded, original)
+        difference = None
+        if finite and loaded.numel():
+            # Float64 measures float32 checkpoint discrepancies without float32 subtraction rounding.
+            difference = float((loaded.to(torch.float64) - original.to(torch.float64)).abs().max())
+            report["max_abs_difference"] = max(report["max_abs_difference"], difference)
+        if not dtype_match or not values_match or not finite:
+            report["mismatched_tensors"].append({
+                "key": key, "reason": "dtype, value or finiteness mismatch",
+                "actual_dtype": str(loaded.dtype), "expected_dtype": str(original.dtype),
+                "values_equal": values_match, "max_abs_difference": difference})
+    if report["nonfinite_tensors"]:
+        report["max_abs_difference"] = None
+    report["exact_match"] = bool(expected_keys) and report["key_set_equal"] and not report["mismatched_tensors"]
+    report["passed"] = report["exact_match"]
+    return report
+
+
 def artifact_audit(thermompnn_dir):
     root = Path(thermompnn_dir).resolve()
     checks = {}
@@ -28,7 +90,7 @@ def artifact_audit(thermompnn_dir):
         return {"status": "blocked", "reason": str(exc), "checks": checks}
     if not all(check["passed"] for check in checks.values()):
         return {"status": "blocked", "reason": "pinned artifact mismatch", "checks": checks}
-    return {"status": "pending", "reason": "runtime freezing and pre-head path audit required", "checks": checks}
+    return {"status": "pending", "reason": "runtime tensor identity, freezing and pre-head path audit required", "checks": checks}
 
 
 def load_frozen_core(thermompnn_dir):
@@ -55,6 +117,17 @@ def load_frozen_core(thermompnn_dir):
         saved = torch.load(root / "models/thermoMPNN_default.pt", map_location="cpu", weights_only=False)
         state = {key[len("model."):]: value for key, value in saved["state_dict"].items() if key.startswith("model.")}
         core.load_state_dict(state, strict=True)
+        original = torch.load(root / "vanilla_model_weights/v_48_020.pt", map_location="cpu", weights_only=True)
+        tensor_match = compare_proteinmpnn_state_dict(core.prot_mpnn.state_dict(), original["model_state_dict"])
+        tensor_match.update(
+            actual_source="core.prot_mpnn.state_dict() after strict ThermoMPNN checkpoint loading",
+            expected_source="vanilla_model_weights/v_48_020.pt:model_state_dict",
+        )
+        audit["checks"]["proteinmpnn_tensor_match"] = tensor_match
+        if not tensor_match["passed"]:
+            audit.update(status="blocked", labels_accessed=False,
+                         reason=f"ProteinMPNN tensor comparison failed; max_abs_difference={tensor_match['max_abs_difference']}")
+            raise FeatureProvenanceError(audit)
         initially_frozen = all(not p.requires_grad for p in core.prot_mpnn.parameters())
         if not initially_frozen:
             raise ValueError("ProteinMPNN is not frozen at construction")
@@ -75,7 +148,7 @@ def load_frozen_core(thermompnn_dir):
             "path": "prot_mpnn -> two decoder hidden states + WT embedding -> concatenation",
             "excluded": ["light_attention", "both_out", "ddg_out"],
             "evidence": "pinned source; extraction function invokes only prot_mpnn; real-data hooks checked separately"}
-        audit.update(status="passed", reason="pinned artifacts and runtime freezing verified",
+        audit.update(status="passed", reason="pinned artifacts, exact ProteinMPNN tensor identity and runtime freezing verified",
                      feature_signature=signature, feature_spec=spec)
         return core, utils, audit
     finally:

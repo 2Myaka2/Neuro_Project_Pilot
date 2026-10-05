@@ -6,7 +6,8 @@ import json
 import pickle
 from pathlib import Path
 
-from .protocol import ARTIFACT_HASHES, COUNTS, ORIGINAL_COUNTS, PROTOCOL_VERSION, SELECTION_PREFIX
+from .protocol import (ARTIFACT_HASHES, COUNTS, HEAD_HOLDOUT_INELIGIBLE_IDS,
+                       ORIGINAL_COUNTS, PROTOCOL_VERSION, SELECTION_PREFIX)
 
 
 def canonical_hash(value):
@@ -68,15 +69,22 @@ def validate_original(original):
 
 def generate_split(original, source):
     original = validate_original(original)
-    ranked = sorted(original["train"], key=lambda pid: (
+    if not HEAD_HOLDOUT_INELIGIBLE_IDS.issubset(original["train"]):
+        raise ValueError("Previously inspected proteins must remain in original train")
+    eligible = set(original["train"]) - HEAD_HOLDOUT_INELIGIBLE_IDS
+    ranked = sorted(eligible, key=lambda pid: (
         hashlib.sha256((SELECTION_PREFIX + pid).encode("utf-8")).hexdigest(), pid))
+    holdout = ranked[:COUNTS["head_holdout"]]
     payload = {
         "protocol_version": PROTOCOL_VERSION,
-        "train": sorted(ranked[30:]), "validation": original["val"],
-        "head_holdout": sorted(ranked[:30]), "legacy_test": original["test"],
+        "train": sorted(set(original["train"]) - set(holdout)), "validation": original["val"],
+        "head_holdout": sorted(holdout), "legacy_test": original["test"],
         "selection_method": {
             "algorithm": "SHA256", "encoding": "UTF-8", "prefix": SELECTION_PREFIX,
             "sort": ["hash", "protein_id"], "take": 30,
+            "eligibility_revision": "stage1.1",
+            "ineligible_head_holdout_ids": sorted(HEAD_HOLDOUT_INELIGIBLE_IDS),
+            "ineligible_reason": "prior explicit inspection of individual mutation labels/errors",
             "stored_order": "lexicographic", "labels_used": False,
         },
         "counts": dict(COUNTS), "source": dict(source),

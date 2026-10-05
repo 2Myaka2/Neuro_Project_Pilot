@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from .protocol import ARTIFACT_HASHES, THERMOMPNN_COMMIT
+from .provenance import FeatureProvenanceError
 from .splits import file_hash, load_original_ids, sequence_duplicates, write_or_validate_split
 
 
@@ -102,6 +103,9 @@ def main(argv=None):
                                 "diagnostics": graph_diagnostics(record)})
             _output({"status": "passed", "labels_accessed": False, "provenance": audit, "proteins": reports}, args.output)
         return 0
+    except FeatureProvenanceError as exc:
+        _output(exc.report, getattr(args, "output", None))
+        return 2
     except (OSError, ValueError, KeyError, PermissionError, ImportError) as exc:
         _output({"status": "blocked", "reason": str(exc), "labels_accessed": False}, getattr(args, "output", None)
                 if args.command != "splits" else None)

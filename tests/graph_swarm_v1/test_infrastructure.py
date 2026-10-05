@@ -23,7 +23,7 @@ from neuropp.splits import canonical_hash, generate_split, sequence_duplicates, 
 
 
 def original_ids():
-    return {"train": [f"train_{i:03}" for i in range(239)],
+    return {"train": ["1A32.pdb", *[f"train_{i:03}" for i in range(238)]],
             "val": [f"val_{i:03}" for i in range(31)], "test": [f"test_{i:03}" for i in range(28)]}
 
 
@@ -63,9 +63,49 @@ class SplitTests(unittest.TestCase):
     def test_recipe_independently(self):
         import hashlib
         old = original_ids()
-        ordered = sorted(old["train"], key=lambda pid: (hashlib.sha256(
+        ordered = sorted((pid for pid in old["train"] if pid != "1A32.pdb"), key=lambda pid: (hashlib.sha256(
             ("graph_swarm_v1:20261004:" + pid).encode("utf-8")).hexdigest(), pid))
         self.assertEqual(split_fixture()["head_holdout"], sorted(ordered[:30]))
+
+    def test_previously_inspected_1a32_always_stays_in_train(self):
+        for seed in range(10):
+            old = original_ids()
+            rng = np.random.default_rng(seed)
+            for values in old.values():
+                rng.shuffle(values)
+            split = generate_split(old, {})
+            self.assertIn("1A32.pdb", split["train"])
+            self.assertNotIn("1A32.pdb", split["head_holdout"])
+            self.assertEqual(split["selection_method"]["ineligible_head_holdout_ids"], ["1A32.pdb"])
+            self.assertEqual(split, generate_split(original_ids(), {}))
+            self.assertEqual({key: len(split[key]) for key in COUNTS}, COUNTS)
+            self.assertEqual(set().union(*(set(split[key]) for key in COUNTS)),
+                             set().union(*(set(values) for values in old.values())))
+
+    def test_deterministic_replacement_of_previously_selected_1a32(self):
+        import hashlib
+        ranked = sorted(original_ids()["train"], key=lambda pid: (
+            hashlib.sha256(("graph_swarm_v1:20261004:" + pid).encode("utf-8")).hexdigest(), pid))
+        self.assertIn("1A32.pdb", ranked[:30])
+        revised = set(split_fixture()["head_holdout"])
+        self.assertEqual(set(ranked[:30]) - revised, {"1A32.pdb"})
+        self.assertEqual(revised - set(ranked[:30]), {ranked[30]})
+
+    def test_inspected_protein_cannot_be_relocated_outside_original_train(self):
+        old = original_ids()
+        old["train"][0], old["val"][0] = old["val"][0], old["train"][0]
+        with self.assertRaisesRegex(ValueError, "Previously inspected proteins"):
+            generate_split(old, {})
+
+    def test_validator_rejects_1a32_holdout_even_with_recomputed_list_hash(self):
+        split = split_fixture()
+        replacement = split["head_holdout"][0]
+        split["train"].remove("1A32.pdb")
+        split["train"] = sorted([*split["train"], replacement])
+        split["head_holdout"] = sorted(["1A32.pdb", *split["head_holdout"][1:]])
+        split["provenance"]["split_lists_sha256"] = canonical_hash({key: split[key] for key in COUNTS})
+        with self.assertRaisesRegex(ValueError, "deterministic recipe"):
+            validate_split(split)
 
     def test_existing_different_split_never_overwritten(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -423,6 +463,9 @@ class OperationalTests(unittest.TestCase):
         protocol = json.loads((root / "experiments/graph_swarm_v1/protocol.json").read_text())
         self.assertEqual(protocol["graph_parameters"], GraphParameters().as_dict())
         self.assertEqual(protocol["splits"]["counts"], COUNTS)
+        self.assertEqual(protocol["splits"]["ineligible_head_holdout_ids"], ["1A32.pdb"])
+        self.assertEqual(protocol["splits"]["selection_revision"], "stage1.1")
+        self.assertTrue(protocol["provenance"]["proteinmpnn_tensor_comparison"]["required_for_passed_provenance"])
         self.assertEqual(protocol["data"]["feature_dimension"], 384)
 
     def test_cli_rejects_protected_real_check_before_artifact_loading(self):

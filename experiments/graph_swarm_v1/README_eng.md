@@ -37,6 +37,12 @@ using the existing `-ddG_ML` convention in kcal/mol.
 
 `neuropp.provenance` checks the pinned commit and hashes recorded in the protocol,
 the checkpoint, runtime ProteinMPNN freezing, and the pre-head extraction path.
+After loading the pinned ThermoMPNN checkpoint, it compares the full loaded
+ProteinMPNN `state_dict` with `model_state_dict` from the pinned original
+`vanilla_model_weights/v_48_020.pt`: identical keys (including buffers), shapes,
+dtypes, and finite tensor values using `torch.equal`, with no tolerance. Any
+mismatch stops the audit and reports the maximum absolute difference; provenance
+can pass only when this comparison passes. Freezing alone is insufficient.
 The real-data audit compares this path with existing frozen features while
 hooks explicitly forbid stability-head calls. Missing artifacts produce
 `blocked / missing artifact`; an artifact-only audit stays `pending` until
@@ -49,13 +55,22 @@ The new split is **209 train / 31 validation / 30 head_holdout / 28 legacy_test*
 `head_holdout` protects the **new heads only**; it is not a fully independent
 external benchmark for the entire system or its pretrained backbone.
 
-For each unaltered original train protein ID, hash UTF-8
+Stage 1.1 excludes **`1A32.pdb`** from `head_holdout` eligibility and keeps it in
+train because its individual mutation labels and errors were explicitly displayed
+in `notebooks/01_baseline.ipynb`. The four allowed legacy documents confirmed
+that it is the only original-training protein with such displays. This correction
+was authorized before GraphSWARM implementation or training and uses no GraphSWARM
+performance. **`2MA4.pdb`** replaces `1A32.pdb` in `head_holdout`.
+
+For each of the other 238 unaltered original train protein IDs, hash UTF-8
 `"graph_swarm_v1:20261004:" + protein_id` with SHA256. Sort by `(hash, protein_id)`,
-choose the first 30 for `head_holdout`, and store all lists lexicographically.
+choose the first 30 eligible proteins for `head_holdout`; all remaining original
+train IDs, including `1A32.pdb`, become train. Store all lists lexicographically.
 [The split manifest](../../splits/graph_swarm_v1.json) contains source hashes,
 counts, the recipe, and hashes of the original and generated lists. Existing
 splits are validated, and different splits are never silently overwritten.
-Selection uses no labels. Exact cross-split WT sequence duplicates are reported
+Eligibility uses documented prior inspection; hash ranking uses no label values.
+Exact cross-split WT sequence duplicates are reported
 without reassignment; sequence similarity and homology are not assessed here.
 
 All future labelled development loading must use `DevelopmentDataAccess`.

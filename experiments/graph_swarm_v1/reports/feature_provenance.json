@@ -1,6 +1,6 @@
 {
   "status": "passed",
-  "reason": "pinned artifacts and runtime freezing verified",
+  "reason": "pinned artifacts, exact ProteinMPNN tensor identity and runtime freezing verified",
   "checks": {
     "pinned_version": {
       "passed": true,
@@ -22,6 +22,23 @@
       "passed": true,
       "expected_sha256": "9e06230fe8febd8f07f8fab374f153328d4bdde20b78de15ead93b39e61ca1eb",
       "actual_sha256": "9e06230fe8febd8f07f8fab374f153328d4bdde20b78de15ead93b39e61ca1eb"
+    },
+    "proteinmpnn_tensor_match": {
+      "passed": true,
+      "compared_tensors": 118,
+      "exact_match": true,
+      "max_abs_difference": 0.0,
+      "key_set_equal": true,
+      "shapes_equal": true,
+      "dtypes_equal": true,
+      "dtype_policy": "identical torch dtype; no casting for equality",
+      "comparison": "torch.equal; no tolerance",
+      "missing_keys": [],
+      "unexpected_keys": [],
+      "mismatched_tensors": [],
+      "nonfinite_tensors": [],
+      "actual_source": "core.prot_mpnn.state_dict() after strict ThermoMPNN checkpoint loading",
+      "expected_source": "vanilla_model_weights/v_48_020.pt:model_state_dict"
     },
     "proteinmpnn_frozen": {
       "passed": true

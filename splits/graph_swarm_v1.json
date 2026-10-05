@@ -1,6 +1,7 @@
 {
   "protocol_version": "graph_swarm_v1:1",
   "train": [
+    "1A32.pdb",
     "1AOY.pdb",
     "1E0L.pdb",
     "1E6H.pdb",
@@ -80,7 +81,6 @@
     "2M8I.pdb",
     "2M8J.pdb",
     "2M8U.pdb",
-    "2MA4.pdb",
     "2MC5.pdb",
     "2MCK.pdb",
     "2MH8.pdb",
@@ -245,7 +245,6 @@
     "v2_2LDM.pdb"
   ],
   "head_holdout": [
-    "1A32.pdb",
     "1H8K.pdb",
     "1H92.pdb",
     "1I2T.pdb",
@@ -258,6 +257,7 @@
     "2LHR.pdb",
     "2LP5.pdb",
     "2LYR.pdb",
+    "2MA4.pdb",
     "2MCH.pdb",
     "2N4R.pdb",
     "4HCK.pdb",
@@ -315,6 +315,11 @@
       "protein_id"
     ],
     "take": 30,
+    "eligibility_revision": "stage1.1",
+    "ineligible_head_holdout_ids": [
+      "1A32.pdb"
+    ],
+    "ineligible_reason": "prior explicit inspection of individual mutation labels/errors",
     "stored_order": "lexicographic",
     "labels_used": false
   },
@@ -336,6 +341,6 @@
   },
   "provenance": {
     "original_lists_sha256": "1c70f5e8f526a2b2d15ab7f1625a6a38b5146a334cb3d80de7178ce364ca6751",
-    "split_lists_sha256": "1a9039391cb4fb427773646eb0188f4aae418be03955d9e5ef3005f0b9b75615"
+    "split_lists_sha256": "c911b7aab45c746bffd6c729f6f8c30e157072f8f2039999c7c94c157290905e"
   }
 }
