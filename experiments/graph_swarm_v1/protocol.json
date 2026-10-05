@@ -1,9 +1,9 @@
 {
   "protocol_version": "graph_swarm_v1:1",
   "experiment": "Mutation-Conditioned GraphSWARM v1",
-  "stage": 2,
-  "stage_revision": "2",
-  "status": "implementation; infrastructure and synthetic-tested model architectures only",
+  "stage": 3,
+  "stage_revision": "3",
+  "status": "implementation; synthetic-tested development training engine; no real training or evaluation",
   "scientific_question": "Does repeatedly recomputing local residue-to-residue messages from updated mutation-conditioned hidden states improve delta-delta-G prediction compared with using a structural context that is computed once and then kept fixed?",
   "primary_comparison": ["graph_static", "graph_swarm"],
   "primary_effect": "protein_macro_MAE(graph_static) - protein_macro_MAE(graph_swarm)",
@@ -222,5 +222,49 @@
     "extra_residual": false,
     "global_vector_inside_recurrence": false,
     "reference_mode": "same q in readout; omit local psi(q) injection only"
+  },
+  "training": {
+    "optimizer": "Adam",
+    "learning_rate": 0.001,
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "eps": 1e-08,
+    "weight_decay": 0.0,
+    "amsgrad": false,
+    "epochs": 40,
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51
+    ],
+    "mutation_microbatch": 64,
+    "gradient_clip_global_norm": 1.0,
+    "dtype": "float32",
+    "scheduler": "none",
+    "early_stopping": false,
+    "AMP": false,
+    "variants": [
+      "mutation_self",
+      "graph_static",
+      "graph_swarm",
+      "graph_swarm_t1"
+    ],
+    "checkpoint_selection": "lowest validation protein macro MAE",
+    "exact_validation_tie": "keep earlier epoch",
+    "primary_comparison": [
+      "graph_static",
+      "graph_swarm"
+    ],
+    "objective": "per-protein MSE; one Adam step per protein per epoch",
+    "protein_order": "default_rng(SeedSequence([seed, epoch])).permutation(sorted IDs)"
   }
 }

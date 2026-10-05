@@ -132,3 +132,34 @@ represent physical interaction shells, time steps or molecular signaling.
 The primary question is the benefit of refreshing evolving mutation-conditioned
 messages relative to fixed mutation-conditioned messages. Synthetic chain
 response bounds concern only the added head at fixed contextual features.
+
+## Stage 3 pre-training operational specification — 2026-10-05 (Europe/Moscow)
+
+Authorization: the owner's Stage 3 request, with verified clean parent
+`a78ff664f84094d728c46b56bdfbde9ac15098e2` on `swarm-advanced`; all 109 existing
+tests passed before edits. Previously, training operations were unspecified.
+The new separate `training` section freezes Adam (lr=0.001, betas=0.9/0.999,
+eps=1e-8, weight_decay=0, amsgrad=false), 40 epochs, seeds 42–51, float32,
+mutation microbatch 64, global gradient clip 1.0, and no scheduler, early
+stopping or AMP. Each protein receives one optimizer step on its full MSE;
+microbatch losses divide by its total mutation count. Selection uses validation
+protein macro MAE, retaining the earlier epoch on an exact tie. All four frozen
+variants share canonical initialization per seed; static vs swarm is primary.
+Protein order uses NumPy `default_rng(SeedSequence([seed, epoch]))` applied to
+sorted train IDs, independent of RNG history or resume.
+
+The guarded CSV loader now permits an owner-provided bulk source after complete
+development-ID preflight. It discards unrequested rows before converting or
+retaining their labels, preserving the completed pilot's exact substitution
+filters, sequence assertions and target sign. Protected IDs remain unavailable.
+Checkpoint configuration, protocol, split SHA256, feature signature and actual
+dataset order/content are checked before resume. Smoke outputs are marked
+`NON-SCIENTIFIC SMOKE` and cannot reuse a full run's manifest. Validation effects
+and crossed seed × protein bootstrap (10,000 replicates, RNG 2026) are exploratory.
+
+This specification precedes all real training and is not performance-driven.
+Only synthetic CPU fixtures may run in Stage 3; no real MegaScale CSV, protected
+labels or legacy prediction/error tables are opened. No notebook is created or
+executed. Stage 1 graph/split settings and Stage 2 architecture remain unchanged.
+Affected files: `training.py`, its synthetic tests, `data_access.py`,
+`protocol.json`, and this amendment. No separate Stage 3 report is added.

@@ -1,9 +1,11 @@
 """Development access policy; no protected evaluator or unlock exists."""
 
 from dataclasses import dataclass
+import csv
 import hashlib
 import json
 import math
+import re
 from pathlib import Path
 from types import MappingProxyType
 
@@ -37,8 +39,9 @@ class MutationLabels:
 class DevelopmentDataAccess:
     """Preflight the entire batch before invoking ANY per-protein label reader.
 
-    Readers must use isolated, trusted per-protein label sources. A bulk MegaScale
-    CSV containing protected rows is not an allowed development label source.
+    Generic readers must use isolated, trusted per-protein label sources.
+    load_megascale_csv is the guarded bulk-source exception: unrequested rows
+    are discarded before their label strings are converted or retained.
     This is a project API guard, not an operating-system security sandbox.
     """
 
@@ -67,6 +70,69 @@ class DevelopmentDataAccess:
     def load_labels(self, protein_ids, reader, claimed_split=None):
         ids = self.require_development_ids(protein_ids, claimed_split)
         return {pid: reader(pid) for pid in ids}
+
+    def load_megascale_csv(self, protein_ids, source, records, claimed_split=None):
+        """Prepare development labels with the completed pilot's exact filters.
+
+        Preflight the COMPLETE request before opening source. Streaming CSV
+        parsing necessarily reads raw strings; only requested development rows
+        have label values converted, stored or returned. Preserve source mutation
+        order and duplicates. Accepted rows with alignment errors raise, rather
+        than silently introducing additional filters. Targets are -ddG_ML in
+        kcal/mol; positive means destabilizing. No source extraction/download.
+        """
+        from .graph import MutationQuery, ProteinRecord
+        from .protocol import ALPHABET
+
+        ids = self.require_development_ids(protein_ids, claimed_split)
+        if len(set(ids)) != len(ids) or not ids:
+            raise ValueError("Request must contain distinct development protein IDs")
+        for pid in ids:
+            record = records[pid]
+            if not isinstance(record, ProteinRecord) or record.protein_id != pid:
+                raise ValueError("Labels require a matching label-free ProteinRecord")
+            record.validate()
+        pattern = re.compile(r"^([ACDEFGHIKLMNPQRSTVWY])([1-9][0-9]*)([ACDEFGHIKLMNPQRSTVWY])$")
+        # Match the pilot's pandas.to_numeric decimal strings. Python float()
+        # additionally accepts underscores and Unicode digits/whitespace.
+        numeric = re.compile(r"[ \t\r\n\v\f]*[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?[ \t\r\n\v\f]*")
+        wt_sequences = {pid: set() for pid in ids}
+        queries, targets = {pid: [] for pid in ids}, {pid: [] for pid in ids}
+        with Path(source).open("r", encoding="utf-8", newline="") as stream:
+            reader = csv.DictReader(stream)
+            if not {"WT_name", "mut_type", "aa_seq", "ddG_ML"}.issubset(reader.fieldnames or []):
+                raise ValueError("MegaScale CSV lacks required pilot columns")
+            for row in reader:
+                pid = row["WT_name"]
+                if pid not in queries:
+                    continue  # Never interpret or retain unrequested labels.
+                if row["mut_type"] == "wt":
+                    wt_sequences[pid].add(row["aa_seq"])
+                match = pattern.fullmatch(row["mut_type"])
+                if match is None or match[1] == match[3]:
+                    continue
+                raw_ddg = row["ddG_ML"]
+                if not isinstance(raw_ddg, str) or numeric.fullmatch(raw_ddg) is None:
+                    continue
+                try:
+                    ddg = float(raw_ddg)
+                except (TypeError, ValueError):
+                    continue
+                if not math.isfinite(ddg):
+                    continue
+                query = MutationQuery(int(match[2]) - 1, ALPHABET.index(match[1]),
+                                      ALPHABET.index(match[3])).validate(records[pid])
+                sequence, i = records[pid].sequence, query.mutation_position
+                if row["aa_seq"] != sequence[:i] + match[3] + sequence[i + 1:]:
+                    raise ValueError(f"Mutant sequence mismatch: {pid} {row['mut_type']}")
+                queries[pid].append(query)
+                targets[pid].append(-ddg)
+        for pid in ids:
+            if wt_sequences[pid] != {records[pid].sequence}:
+                raise ValueError(f"Expected one unique matching WT sequence: {pid}")
+            if not queries[pid]:
+                raise ValueError(f"No finite single substitutions: {pid}")
+        return {pid: MutationLabels(pid, tuple(queries[pid]), tuple(targets[pid])) for pid in ids}
 
     def load_label_directory(self, protein_ids, directory, records, claimed_split=None):
         """Concrete loader for separately supplied, per-protein development labels.
