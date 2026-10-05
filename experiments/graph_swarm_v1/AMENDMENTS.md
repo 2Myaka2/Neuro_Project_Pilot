@@ -75,3 +75,60 @@ Future scientific changes require an explicit amendment explaining the reason,
 date, prior and replacement values, affected artifacts, and authorization.
 Version the protocol and cache namespace when compatibility changes. Do not
 silently replace the split, unlock protected labels, or change k/RBF features.
+
+## Stage 2 pre-training architecture specification — 2026-10-05 (Europe/Moscow)
+
+Authorization: the owner's Stage 2 request on `swarm-advanced`, with required
+parent `646b00819f435e6143a8e42af23de840c681d2e3`. The branch, exact parent,
+clean working tree and all 65 Stage 1/1.1 tests were verified before changes.
+
+**Previous specification:** Stage 1/1.1 implemented infrastructure only; head
+dimensions, recurrent depth and trainable model modules were unspecified.
+**New frozen specification:** the separated `model` section in `protocol.json`,
+identified by `graph_swarm_v1:model:2`, fixes precisely the three main variants
+`mutation_self`, `graph_static`, `graph_swarm` (T=4) and the secondary
+`graph_swarm_t1` (T=1). No additional architectures are introduced.
+
+- Mutation alphabet: `ACDEFGHIKLMNPQRSTVWY`; q = WT one-hot, MUT one-hot,
+  MUT−WT difference (60 components); WT≠MUT; no other descriptors.
+- Biased projection 384→64 with tanh; biased mutation MLP 60→64→64, SiLU
+  after the first linear only; injection through immutable `seq_pos`.
+- Receiver/sender/17-edge-feature concatenation (145); biased message MLP
+  145→64→64; attention 145→32→1 with first bias true and final bias false.
+  Both MLPs use SiLU after the first linear only. Stable incoming-neighbor
+  normalization is separate per destination and query; empty messages are zero.
+- One shared biased `GRUCell(64,64)` with synchronous updates. Static computes
+  mutation-conditioned m⁰ once after injection and reuses it with autograd
+  intact; swarm refreshes values and attention after each hidden update.
+  Self uses `(h_i,h_i,zeros(17))` through the message MLP, with no attention
+  or cross-node recurrent exchange. Its final readout still includes all nodes.
+- Final mutation-row hidden state, mean hidden state, and q (188); biased
+  readout MLP 188→64→1, SiLU after first linear only; output `[B]`.
+- Dropout=0; BatchNorm=false; LayerNorm=false; no extra residual or global
+  vector inside recurrence. Opt-in attached diagnostics and matched reference
+  omitting only local ψ(q) injection preserve ordinary predictions/gradients.
+
+**Reason and timing:** this records the supplied architecture before real-data
+training. It is **not performance-driven**. No new GraphSWARM dataset training
+or validation evaluation occurred before this specification or during Stage 2.
+The only optimization allowed here is a fixed tiny synthetic engineering test;
+it does not select architecture or hyperparameters. The requested values were
+not adjusted using that test. No MegaScale labels or protected labels were read.
+
+Graph parameters, graph protocol/cache version `graph_swarm_v1:1`, split
+eligibility `stage1.1`, split lists, provenance and access policies remain frozen.
+Top-level stage/revision/status now describe Stage 2; `stage1_excluded` remains
+a historical record of Stage 1 scope. The model has a separate version because
+adding a head does not change graph cache or split compatibility. Future
+checkpoints must include configuration metadata in addition to parameter tensors.
+
+Affected files: `src/neuropp/models.py`, `tests/graph_swarm_v1/test_models.py`,
+the optional `models` dependency in `pyproject.toml`, `protocol.json`, both
+experiment READMEs, this amendment, and `reports/stage2_report.md`.
+
+**Interpretation limit:** Stage 1's three sampled real graphs reached all other
+nodes within four hops. T=4 is not guaranteed-local propagation and does not
+represent physical interaction shells, time steps or molecular signaling.
+The primary question is the benefit of refreshing evolving mutation-conditioned
+messages relative to fixed mutation-conditioned messages. Synthetic chain
+response bounds concern only the added head at fixed contextual features.

@@ -1,9 +1,9 @@
 {
   "protocol_version": "graph_swarm_v1:1",
   "experiment": "Mutation-Conditioned GraphSWARM v1",
-  "stage": 1,
-  "stage_revision": "1.1",
-  "status": "implementation; infrastructure only",
+  "stage": 2,
+  "stage_revision": "2",
+  "status": "implementation; infrastructure and synthetic-tested model architectures only",
   "scientific_question": "Does repeatedly recomputing local residue-to-residue messages from updated mutation-conditioned hidden states improve delta-delta-G prediction compared with using a structural context that is computed once and then kept fixed?",
   "primary_comparison": ["graph_static", "graph_swarm"],
   "primary_effect": "protein_macro_MAE(graph_static) - protein_macro_MAE(graph_swarm)",
@@ -115,5 +115,112 @@
     "original_feature_cache": "read-only data/features/thermompnn"
   },
   "numerical_tolerances": {"float64": {"atol": 1e-8, "rtol": 1e-7}, "float32": {"atol": 1e-5, "rtol": 1e-5}},
-  "stage1_excluded": ["GraphSwarmLayer", "GraphStatic", "MutationSelf", "GRU", "training loop", "03 training notebook", "bootstrap evaluation", "hyperparameter search", "final protected evaluation", "PyTorch Geometric"]
+  "stage1_excluded": ["GraphSwarmLayer", "GraphStatic", "MutationSelf", "GRU", "training loop", "03 training notebook", "bootstrap evaluation", "hyperparameter search", "final protected evaluation", "PyTorch Geometric"],
+  "model": {
+    "spec_version": "graph_swarm_v1:model:2",
+    "variants": [
+      "mutation_self",
+      "graph_static",
+      "graph_swarm",
+      "graph_swarm_t1"
+    ],
+    "mutation_alphabet": "ACDEFGHIKLMNPQRSTVWY",
+    "mutation_encoding": "concat(one_hot(WT), one_hot(MUT), MUT-WT)",
+    "feature_dim": 384,
+    "hidden_dim": 64,
+    "mutation_dim": 60,
+    "main_steps": 4,
+    "secondary_steps": 1,
+    "projection": {
+      "dimensions": [
+        384,
+        64
+      ],
+      "activation": "tanh",
+      "bias": true
+    },
+    "mutation_mlp": {
+      "dimensions": [
+        60,
+        64,
+        64
+      ],
+      "activation": "SiLU after first linear only",
+      "bias": [
+        true,
+        true
+      ]
+    },
+    "message_input_dim": 145,
+    "message_input_order": [
+      "receiver",
+      "sender",
+      "edge_attr"
+    ],
+    "message_mlp": {
+      "dimensions": [
+        145,
+        64,
+        64
+      ],
+      "activation": "SiLU after first linear only",
+      "bias": [
+        true,
+        true
+      ]
+    },
+    "attention_mlp": {
+      "dimensions": [
+        145,
+        32,
+        1
+      ],
+      "activation": "SiLU after first linear only",
+      "bias": [
+        true,
+        false
+      ]
+    },
+    "attention_normalization": "incoming edges per destination and mutation query; stable softmax",
+    "zero_incoming_message": 0,
+    "recurrent_cell": {
+      "type": "GRUCell",
+      "input_size": 64,
+      "hidden_size": 64,
+      "bias": true
+    },
+    "synchronous_updates": true,
+    "shared_across_residues_steps_queries": true,
+    "message_refresh": {
+      "mutation_self": "self messages every step; attention inactive",
+      "graph_static": "once from mutation-injected H0; reuse same tensor without detach",
+      "graph_swarm": "every step from current Ht",
+      "graph_swarm_t1": "one step from H0"
+    },
+    "readout_dim": 188,
+    "readout_input_order": [
+      "mutation_row_hidden",
+      "mean_node_hidden",
+      "q"
+    ],
+    "readout_mlp": {
+      "dimensions": [
+        188,
+        64,
+        1
+      ],
+      "activation": "SiLU after first linear only",
+      "bias": [
+        true,
+        true
+      ]
+    },
+    "output": "one scalar delta-delta-G per query; [B]",
+    "dropout": 0,
+    "batch_norm": false,
+    "layer_norm": false,
+    "extra_residual": false,
+    "global_vector_inside_recurrence": false,
+    "reference_mode": "same q in readout; omit local psi(q) injection only"
+  }
 }

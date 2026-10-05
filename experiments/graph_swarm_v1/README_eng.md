@@ -1,7 +1,8 @@
 # Mutation-Conditioned GraphSWARM v1
 
-Stage 1 prepares infrastructure. The model, training, hyperparameter search,
-bootstrap analysis, and protected evaluator are not implemented. Experiment 1
+Stages 1/1.1 prepare infrastructure; Stage 2 implements the frozen model
+architectures and synthetic model tests. Real-data training, hyperparameter
+search, bootstrap analysis, and the protected evaluator are not implemented. Experiment 1
 is completed and its notebooks, documentation, features, weights, and published
 outputs are preserved. The machine-readable contract is [protocol.json](protocol.json);
 [config.yaml](config.yaml) records fixed parameters and artifact locations.
@@ -150,5 +151,139 @@ original split, WT structures, and compatible frozen feature cache at the
 documented paths (or use location flags). Stage 1 stops at that boundary; it
 does not download or create replacement datasets or weights. See
 [AMENDMENTS.md](AMENDMENTS.md) and the [stage 1 report](reports/stage1_report.md)
-for audited evidence, limitations, and remaining decisions. Stage 2 requires
-a separate instruction.
+for audited infrastructure evidence. The [Stage 2 report](reports/stage2_report.md)
+records synthetic model evidence; real-data training requires a later stage.
+
+## Stage 2 frozen model specification
+
+The main variants are `mutation_self`, `graph_static`, and `graph_swarm` with
+T=4. The separately instantiated secondary control `graph_swarm_t1` has T=1.
+The primary future comparison remains `graph_static` versus `graph_swarm`:
+identical registered modules, parameter tensors, and `state_dict` structure;
+the only difference is message refresh after hidden-state updates.
+
+For alphabet `ACDEFGHIKLMNPQRSTVWY`, indices 0..19 encode
+`q = concat(one_hot(WT), one_hot(MUT), one_hot(MUT)-one_hot(WT))`, shape `[B,60]`.
+WT and MUT must differ. No amino-acid properties, learned embeddings or labels
+enter the head. Frozen `[L,384]` features are projected by a biased 384→64 linear
+layer followed by tanh. The biased 60→64→64 mutation MLP has SiLU after its first
+linear only. Its output is added exclusively to the row whose immutable
+`seq_pos` equals the mutation position, producing `[B,L,64]` initial states.
+
+For each directed edge j→i, concatenate receiver hidden state, sender hidden
+state and the unchanged 17 edge attributes, in that order (145 dimensions).
+The biased message MLP is 145→64→64; attention is 145→32→1, with bias on the
+first linear and **no bias** on the final scalar linear. Both use SiLU only
+after their first linear. Stable softmax normalizes separately over incoming
+edges of each destination and each mutation query. Weighted messages sum at
+the destination; nodes with no incoming edges receive exactly zero. The
+implementation uses native PyTorch scatter operations without graph libraries.
+
+All messages at step t are computed from Hᵗ before a single synchronous update
+with `GRUCell(64,64,bias=True)`. One cell is shared across residues, steps and
+queries. There is no communication across mutation queries, dropout, BatchNorm,
+LayerNorm, extra residual, or global population vector inside recurrence.
+`graph_swarm` refreshes both values and attention every step. `graph_static`
+computes mutation-conditioned m⁰ once **after injection**, then reuses that
+exact tensor at all four updates; it is recomputed on every forward and never
+detached or constructed under `no_grad`.
+
+`mutation_self` instead concatenates `(h_i,h_i,zeros(17))` and applies the same
+message MLP every step, without attention. This means **no cross-node exchange
+inside recurrent dynamics**. Other residues still influence the prediction
+through the final global mean; this is not an isolated single-residue predictor.
+Its attention module is registered but inactive. `graph_swarm_t1` uses the same
+graph modules for one update. A T=1 diagnostic override of the primary variants
+allows prediction and parameter-gradient equivalence tests, without adding a
+new architecture or changing the frozen main T=4 comparison.
+
+The final readout concatenates `(h_mutation_row, mean_i(h_i), q)` (188 dimensions)
+and applies a biased 188→64→1 MLP with SiLU after its first linear only. The
+output is one scalar predicted ΔΔG per query, shape `[B]`.
+
+| Variant | Steps | Registered trainable parameters | Effectively used parameters |
+|---|---:|---:|---:|
+| mutation_self | 4 | 88,033 | 83,329 |
+| graph_static | 4 | 88,033 | 88,033 |
+| graph_swarm | 4 | 88,033 | 88,033 |
+| graph_swarm_t1 | 1 | 88,033 | 88,033 |
+
+The inactive attention accounts for 4,704 parameters. Effective counts describe
+architectural participation in an ordinary injected forward, not nonzero
+gradients of every scalar for every graph (e.g. singleton neighborhoods).
+
+## Model API and diagnostics
+
+Import `MutationGraphModel` from `neuropp.models`. PyTorch ≥2.5 is needed for
+models and is already present in the CPU `NeuroPP` environment; the optional
+package extra is `models`. Importing the base infrastructure still avoids
+importing PyTorch. No package installation or download is needed here.
+
+```python
+model = MutationGraphModel("graph_swarm")  # T=4
+prediction = model(features, seq_pos, edge_index, edge_attr,
+                   mutation_positions, wt_indices, mut_indices)
+prediction, diagnostics = model(
+    features, seq_pos, edge_index, edge_attr,
+    mutation_positions, wt_indices, mut_indices,
+    return_diagnostics=True,
+)
+reference_prediction, reference = model(
+    features, seq_pos, edge_index, edge_attr,
+    mutation_positions, wt_indices, mut_indices,
+    return_diagnostics=True, inject_mutation=False,
+)
+```
+
+Inputs have shapes `[L,384]`, `[L]`, `[2,E]`, `[E,17]`, `[B]`, `[B]`, `[B]`.
+L and B must be positive. Use float32/float64 matching the model dtype/device
+and integer index tensors on that device; conversions are explicit. Forward
+checks shapes, finiteness, full immutable position mapping, query index ranges,
+WT≠MUT, and graph endpoint validity, self-loop and duplicate exclusion. It does
+not reconstruct topology or infer WT sequence from contextual features:
+`ProteinRecord.validate()` and `MutationQuery.validate(record)` retain Stage 1
+geometric and WT-alignment responsibilities upstream. Synthetic chain tests
+exercise the head with artificial sparse graphs; the real graph contract stays k=16.
+Forward accepts no labels or arbitrary target arguments.
+
+Diagnostics are off by default and return H⁰..Hᵀ, per-step messages and graph
+attention, q, and mapped mutation rows. They preserve predictions, parameters,
+and gradients and return live, attached tensors. Do not mutate them; release
+them when finished. Static diagnostics repeat the same message/attention tensor
+by identity; self attention entries are `None`.
+
+The matched reference uses the same features, graph, weights, q and model mode,
+omitting only local ψ(q) injection. A later response measure may use
+`delta_i^t = ||h_i,injected^t - h_i,reference^t||₂`. This infrastructure is not
+mechanistic evidence and is not WT molecular dynamics. Readout q remains
+present in both passes; compare hidden trajectories, not raw Hᵗ−H⁰.
+
+`model.checkpoint_configuration()` explicitly records variant, actual steps,
+graph protocol version and the full architecture specification. Save it beside
+`state_dict`; a future Stage 3 loader must compare both. Tensor keys alone cannot
+distinguish static from refreshed messages or T=1 from T=4. Stage 2 implements
+no training/checkpoint pipeline or protected evaluator.
+
+## Interpretation and allowed Stage 2 validation
+
+Stage 1's three sampled real graphs (`1AOY.pdb`, `1E0L.pdb`, `1I6C.pdb`) reached
+**all nodes within four hops** (mean fraction of other residues = 1.0000).
+Therefore T=4 does not guarantee local-only information. Four updates are not
+four physical interaction shells, physical time steps, or molecular signal
+propagation. The question is whether recomputing messages from evolving
+mutation-conditioned states helps relative to fixed mutation-conditioned messages.
+Synthetic chain bounds concern the **additional head response at fixed frozen
+features**, not ProteinMPNN's receptive field.
+
+Run only Stage 1/1.1 and Stage 2 synthetic tests during this stage:
+
+```bash
+PYTHONPATH=src conda run --no-capture-output -n NeuroPP python -m unittest discover -s tests/graph_swarm_v1 -v
+```
+
+The tiny learning test optimizes four prescribed synthetic targets for 60 CPU
+updates as an engineering check. It uses no MegaScale labels, validation proteins
+or performance-based tuning. Do not run the earlier real-artifact audit commands
+as part of Stage 2. Real training, validation MAE, bootstrap/protected evaluation,
+and `03_mutation_graph_swarm.ipynb` are deferred. Synthetic success does not
+establish real-data accuracy or scientific benefit.
