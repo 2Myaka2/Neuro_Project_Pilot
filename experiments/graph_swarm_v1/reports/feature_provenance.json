@@ -1,0 +1,65 @@
+{
+  "status": "passed",
+  "reason": "pinned artifacts and runtime freezing verified",
+  "checks": {
+    "pinned_version": {
+      "passed": true,
+      "expected": "370f76ec62bd929f7425e311d8df04a0d094990f",
+      "actual": "370f76ec62bd929f7425e311d8df04a0d094990f",
+      "tracked_changes": ""
+    },
+    "models/thermoMPNN_default.pt": {
+      "passed": true,
+      "expected_sha256": "af449118ccfb4e34971d802321907ed82a8a035ae80f055bf8fc56009a4a838a",
+      "actual_sha256": "af449118ccfb4e34971d802321907ed82a8a035ae80f055bf8fc56009a4a838a"
+    },
+    "vanilla_model_weights/v_48_020.pt": {
+      "passed": true,
+      "expected_sha256": "c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd",
+      "actual_sha256": "c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd"
+    },
+    "dataset_splits/mega_splits.pkl": {
+      "passed": true,
+      "expected_sha256": "9e06230fe8febd8f07f8fab374f153328d4bdde20b78de15ead93b39e61ca1eb",
+      "actual_sha256": "9e06230fe8febd8f07f8fab374f153328d4bdde20b78de15ead93b39e61ca1eb"
+    },
+    "proteinmpnn_frozen": {
+      "passed": true
+    },
+    "feature_path": {
+      "passed": true,
+      "dimension": 384,
+      "path": "prot_mpnn -> two decoder hidden states + WT embedding -> concatenation",
+      "excluded": [
+        "light_attention",
+        "both_out",
+        "ddg_out"
+      ],
+      "evidence": "pinned source; extraction function invokes only prot_mpnn; real-data hooks checked separately"
+    }
+  },
+  "feature_signature": "55c5ee9e7e9c264ce3a110bb22a64ba3872726d976d2905f345635b4a83bb991",
+  "feature_spec": {
+    "format_version": 1,
+    "commit": "370f76ec62bd929f7425e311d8df04a0d094990f",
+    "checkpoint_sha256": "af449118ccfb4e34971d802321907ed82a8a035ae80f055bf8fc56009a4a838a",
+    "proteinmpnn_sha256": "c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd",
+    "source_sha256": {
+      "protein_mpnn_utils.py": "3bbcb4342482438bb5d4ebe6509d514490dfce804617865fa55ffdcbda2fea12",
+      "transfer_model.py": "cddf49a119316785aca7e2653d25ebc37a436fda7655a43b7f634040e6dd92e2"
+    },
+    "model_config": {
+      "hidden_dims": [
+        64,
+        32
+      ],
+      "subtract_mut": true,
+      "num_final_layers": 2,
+      "freeze_weights": true,
+      "load_pretrained": true,
+      "lightattn": true
+    },
+    "torch": "2.5.1+cpu",
+    "device": "cpu"
+  }
+}

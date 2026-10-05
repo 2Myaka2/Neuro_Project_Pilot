@@ -1,0 +1,26 @@
+# Stage 1 configuration only. No model or training hyperparameters are selected.
+experiment: graph_swarm_v1
+protocol_version: "graph_swarm_v1:1"
+stage: 1
+development_mode: true
+feature_dimension: 384
+graph_parameters:
+  k: 16
+  rbf_count: 16
+  rbf_min: 2.0
+  rbf_max: 20.0
+  rbf_sigma: 1.2
+  protocol_version: "graph_swarm_v1:1"
+paths:
+  original_split: external/ThermoMPNN/dataset_splits/mega_splits.pkl
+  split_manifest: splits/graph_swarm_v1.json
+  thermompnn: external/ThermoMPNN
+  wt_structures: data/megascale/AlphaFold_model_PDBs
+  frozen_features_read_only: data/features/thermompnn
+  graph_cache: data/graphs/graph_swarm_v1
+development_label_splits: [train, validation]
+protected_label_splits: [head_holdout, legacy_test]
+automatic_downloads: false
+protected_evaluator_implemented: false
+model_implemented: false
+training_implemented: false

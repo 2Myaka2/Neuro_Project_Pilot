@@ -1,0 +1,105 @@
+{
+  "protocol_version": "graph_swarm_v1:1",
+  "experiment": "Mutation-Conditioned GraphSWARM v1",
+  "stage": 1,
+  "status": "implementation; infrastructure only",
+  "scientific_question": "Does repeatedly recomputing local residue-to-residue messages from updated mutation-conditioned hidden states improve delta-delta-G prediction compared with using a structural context that is computed once and then kept fixed?",
+  "primary_comparison": ["graph_static", "graph_swarm"],
+  "primary_effect": "protein_macro_MAE(graph_static) - protein_macro_MAE(graph_swarm)",
+  "positive_effect_means": "GraphSWARM performs better",
+  "protein_macro_MAE": "mean across proteins of mean absolute error across each protein's mutations",
+  "interpretation": {
+    "working_project_name": true,
+    "description": "recurrent graph neural network inspired by SWARM mappings",
+    "hidden_iterations_are_physical_time": false,
+    "simulates_molecular_dynamics": false,
+    "mae_alone_proves_energy_force_or_conformational_waves": false
+  },
+  "data": {
+    "dataset": "MegaScale",
+    "structures": "WT AlphaFold PDBs",
+    "features": "same frozen pre-stability-head ThermoMPNN / ProteinMPNN representations as experiment 1",
+    "feature_dimension": 384,
+    "feature_components": ["128-dimensional final decoder state", "128-dimensional penultimate decoder state", "128-dimensional WT embedding"],
+    "component_order": "upstream hidden[:2] (last decoder first), then WT embedding; preserve experiment 1 order",
+    "excluded_feature_modules": ["light_attention", "both_out", "ddg_out"],
+    "forbidden_inputs": ["previous predicted delta-delta-G", "previous model errors", "old trained head weights", "legacy test performance"],
+    "label_sign": "delta-delta-G = -ddG_ML; positive means destabilization; kcal/mol",
+    "labels_separate_from_graph_and_model_inputs": true
+  },
+  "provenance": {
+    "thermompnn_commit": "370f76ec62bd929f7425e311d8df04a0d094990f",
+    "checkpoint": "models/thermoMPNN_default.pt",
+    "checkpoint_sha256": "af449118ccfb4e34971d802321907ed82a8a035ae80f055bf8fc56009a4a838a",
+    "proteinmpnn_checkpoint": "vanilla_model_weights/v_48_020.pt",
+    "proteinmpnn_checkpoint_sha256": "c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd",
+    "missing_artifact_status": "blocked / missing artifact",
+    "downloads": "never automatic"
+  },
+  "splits": {
+    "original_counts": {"train": 239, "val": 31, "test": 28},
+    "counts": {"train": 209, "validation": 31, "head_holdout": 30, "legacy_test": 28},
+    "selection_prefix": "graph_swarm_v1:20261004:",
+    "selection": "SHA256(UTF8(prefix + protein_id)); sort by (hash, protein_id); first 30 original train IDs become head_holdout; store each list lexicographically",
+    "manifest": "splits/graph_swarm_v1.json",
+    "labels_used_in_selection": false,
+    "head_holdout_scope": "protected holdout for the new heads only; not an independent external benchmark for the entire system",
+    "legacy_test_scope": "previously inspected old test; not a new independent test set",
+    "sequence_duplicates": "report exact WT duplicates across splits without reassignment"
+  },
+  "development_access": {
+    "labelled_splits": ["train", "validation"],
+    "protected_splits": ["head_holdout", "legacy_test"],
+    "membership_check": "actual requested and source protein IDs before label loading; entire batch preflighted",
+    "metadata_only": "separate label-free API",
+    "unlock": false,
+    "final_evaluator": false
+  },
+  "graph_parameters": {
+    "k": 16,
+    "rbf_count": 16,
+    "rbf_min": 2.0,
+    "rbf_max": 20.0,
+    "rbf_sigma": 1.2,
+    "protocol_version": "graph_swarm_v1:1"
+  },
+  "graph": {
+    "coordinates": "C-alpha; angstrom",
+    "distance": "Euclidean norm",
+    "k_eff": "min(16, L - 1)",
+    "topology": "per-node kNN excluding self; symmetric union; store both directed orientations",
+    "edge_index": "[2,E]; row 0 is source j; row 1 is destination i",
+    "tie_break": "immutable original zero-based WT sequence position",
+    "self_loops": false,
+    "duplicate_directed_edges": false,
+    "degree_exactly_16_required": false,
+    "connected_required": false,
+    "singleton": "edge_index [2,0], edge_attr [0,17]",
+    "empty_protein": "explicit error",
+    "edge_features": "16 RBFs exp(-(d-mu)^2/(2*1.2^2)), mu=linspace(2,20,16); log(1+abs(seq_pos_i-seq_pos_j))/log(1+L)",
+    "distance_clipping": false,
+    "extra_edges_or_descriptors": false
+  },
+  "record": {
+    "required": {"protein_id": "str", "sequence": "canonical WT str of length L", "features": "[L,384]", "ca_coordinates": "[L,3]", "seq_pos": "[L]; permutation of 0..L-1", "residue_uid": "[L]; chain:number:insertion_code", "edge_index": "[2,E]", "edge_attr": "[E,17]"},
+    "alignment_evidence": ["residue_amino_acids [L]", "feature_amino_acids [L]"],
+    "mutation_query": ["mutation_position (immutable zero-based WT position)", "wt_index", "mut_index"],
+    "labels": "separate MutationLabels; never in graph construction or cache",
+    "ambiguous_mapping": "explicit error; never truncate, pad, repair or silently reindex"
+  },
+  "diagnostics": {
+    "fields": ["degree min/mean/max", "connected components", "min/max edge distance", "reachable fraction at 1/2/4 hops"],
+    "reachability": "mean over starting residues; reached OTHER residues divided by L-1; singleton=0"
+  },
+  "cache": {
+    "namespace": "data/graphs/graph_swarm_v1",
+    "key": ["protein_id", "sequence", "coordinate SHA256", "residue mapping SHA256", "frozen feature SHA256", "graph parameters", "protocol version"],
+    "contents": ["edge_index", "edge_attr", "metadata and array checksums"],
+    "labels": false,
+    "atomic_writes": true,
+    "corruption_policy": "explicit error; no silent reuse",
+    "original_feature_cache": "read-only data/features/thermompnn"
+  },
+  "numerical_tolerances": {"float64": {"atol": 1e-8, "rtol": 1e-7}, "float32": {"atol": 1e-5, "rtol": 1e-5}},
+  "stage1_excluded": ["GraphSwarmLayer", "GraphStatic", "MutationSelf", "GRU", "training loop", "03 training notebook", "bootstrap evaluation", "hyperparameter search", "final protected evaluation", "PyTorch Geometric"]
+}

@@ -1,0 +1,158 @@
+{
+  "status": "passed",
+  "labels_accessed": false,
+  "provenance": {
+    "status": "passed",
+    "reason": "pinned artifacts and runtime freezing verified",
+    "checks": {
+      "pinned_version": {
+        "passed": true,
+        "expected": "370f76ec62bd929f7425e311d8df04a0d094990f",
+        "actual": "370f76ec62bd929f7425e311d8df04a0d094990f",
+        "tracked_changes": ""
+      },
+      "models/thermoMPNN_default.pt": {
+        "passed": true,
+        "expected_sha256": "af449118ccfb4e34971d802321907ed82a8a035ae80f055bf8fc56009a4a838a",
+        "actual_sha256": "af449118ccfb4e34971d802321907ed82a8a035ae80f055bf8fc56009a4a838a"
+      },
+      "vanilla_model_weights/v_48_020.pt": {
+        "passed": true,
+        "expected_sha256": "c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd",
+        "actual_sha256": "c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd"
+      },
+      "dataset_splits/mega_splits.pkl": {
+        "passed": true,
+        "expected_sha256": "9e06230fe8febd8f07f8fab374f153328d4bdde20b78de15ead93b39e61ca1eb",
+        "actual_sha256": "9e06230fe8febd8f07f8fab374f153328d4bdde20b78de15ead93b39e61ca1eb"
+      },
+      "proteinmpnn_frozen": {
+        "passed": true
+      },
+      "feature_path": {
+        "passed": true,
+        "dimension": 384,
+        "path": "prot_mpnn -> two decoder hidden states + WT embedding -> concatenation",
+        "excluded": [
+          "light_attention",
+          "both_out",
+          "ddg_out"
+        ],
+        "evidence": "pinned source; extraction function invokes only prot_mpnn; real-data hooks checked separately"
+      }
+    },
+    "feature_signature": "55c5ee9e7e9c264ce3a110bb22a64ba3872726d976d2905f345635b4a83bb991",
+    "feature_spec": {
+      "format_version": 1,
+      "commit": "370f76ec62bd929f7425e311d8df04a0d094990f",
+      "checkpoint_sha256": "af449118ccfb4e34971d802321907ed82a8a035ae80f055bf8fc56009a4a838a",
+      "proteinmpnn_sha256": "c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd",
+      "source_sha256": {
+        "protein_mpnn_utils.py": "3bbcb4342482438bb5d4ebe6509d514490dfce804617865fa55ffdcbda2fea12",
+        "transfer_model.py": "cddf49a119316785aca7e2653d25ebc37a436fda7655a43b7f634040e6dd92e2"
+      },
+      "model_config": {
+        "hidden_dims": [
+          64,
+          32
+        ],
+        "subtract_mut": true,
+        "num_final_layers": 2,
+        "freeze_weights": true,
+        "load_pretrained": true,
+        "lightattn": true
+      },
+      "torch": "2.5.1+cpu",
+      "device": "cpu"
+    }
+  },
+  "proteins": [
+    {
+      "split": "train",
+      "feature_cache": "data/features/thermompnn/a482e84b1b033b07eaadbdaba099817224b32d4227370280c07270af2450eba3.pt",
+      "feature_cache_sha256": "0f3ba0614a9ba905c0e9f83b259289e3a5cbf2b32accd37cd8c50f6c42eb89be",
+      "pre_head_feature_match": true,
+      "stability_head_calls": 0,
+      "graph_cache": "data/graphs/graph_swarm_v1/a700628038b5b02afe82c393b2fcff711aac16c562373e76b8fe225fba32d367.npz",
+      "diagnostics": {
+        "protein_id": "1AOY.pdb",
+        "length": 69,
+        "directed_edges": 1314,
+        "degree": {
+          "min": 16,
+          "mean": 19.043478260869566,
+          "max": 32
+        },
+        "connected_components": 1,
+        "edge_distance_angstrom": {
+          "min": 3.789855010419264,
+          "max": 14.307740457528576
+        },
+        "reachable_fraction": {
+          "1": 0.2800511508951406,
+          "2": 0.7757885763000851,
+          "4": 1.0
+        },
+        "reachability_definition": "mean over start nodes; other residues; singleton=0"
+      }
+    },
+    {
+      "split": "train",
+      "feature_cache": "data/features/thermompnn/23339139b804faa2d503b27b74e98028dc466a8c88649879aa58735d35d54695.pt",
+      "feature_cache_sha256": "20eb826702022262e7a69924bb11d43f0e6e16e8c5b7e3b05838b1dda4c7d420",
+      "pre_head_feature_match": true,
+      "stability_head_calls": 0,
+      "graph_cache": "data/graphs/graph_swarm_v1/3fbe31db6e6848f2b82a846d96ea7bd6b3c2f0489a97a2b7ecede37285062a23.npz",
+      "diagnostics": {
+        "protein_id": "1E0L.pdb",
+        "length": 37,
+        "directed_edges": 724,
+        "degree": {
+          "min": 16,
+          "mean": 19.56756756756757,
+          "max": 32
+        },
+        "connected_components": 1,
+        "edge_distance_angstrom": {
+          "min": 3.7872761980082728,
+          "max": 18.492010436942763
+        },
+        "reachable_fraction": {
+          "1": 0.5435435435435434,
+          "2": 0.9834834834834834,
+          "4": 1.0
+        },
+        "reachability_definition": "mean over start nodes; other residues; singleton=0"
+      }
+    },
+    {
+      "split": "validation",
+      "feature_cache": "data/features/thermompnn/82ded0310aa587bedba0592bad2c710e8b49316f0633cfaa1d74cb1a0a4bc72d.pt",
+      "feature_cache_sha256": "d48a73525d3d9e47afa7f9294ec4cd66216f2f55078a0466f3a99f814fa06782",
+      "pre_head_feature_match": true,
+      "stability_head_calls": 0,
+      "graph_cache": "data/graphs/graph_swarm_v1/733b16f2074478d0422d12275cbaaf8b3301cbce7eb9339a2234d20bacb6b120.npz",
+      "diagnostics": {
+        "protein_id": "1I6C.pdb",
+        "length": 39,
+        "directed_edges": 776,
+        "degree": {
+          "min": 16,
+          "mean": 19.897435897435898,
+          "max": 32
+        },
+        "connected_components": 1,
+        "edge_distance_angstrom": {
+          "min": 3.7042695636251946,
+          "max": 23.003624996943415
+        },
+        "reachable_fraction": {
+          "1": 0.52361673414305,
+          "2": 0.9703103913630227,
+          "4": 1.0
+        },
+        "reachability_definition": "mean over start nodes; other residues; singleton=0"
+      }
+    }
+  ]
+}

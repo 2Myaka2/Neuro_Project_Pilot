@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "labels_accessed": false,
+  "metadata_source": "data/megascale/AlphaFold_model_PDBs",
+  "sequences_checked": 298,
+  "unavailable": [],
+  "exact_cross_split_duplicates": [],
+  "assignments_changed": false
+}
