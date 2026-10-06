@@ -2,6 +2,7 @@
 
 import copy
 from contextlib import contextmanager
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -14,9 +15,11 @@ try:
 except ImportError:
     torch = None
 
-from neuropp.provenance import (FeatureProvenanceError, compare_proteinmpnn_state_dict,
-                               load_frozen_core)
-from neuropp.splits import generate_split
+from neuropp.local_artifacts import load_existing_record
+from neuropp.protocol import ARTIFACT_HASHES, FEATURE_CACHE_SIGNATURE, THERMOMPNN_COMMIT
+from neuropp.provenance import (FeatureProvenanceError, artifact_audit,
+                               compare_proteinmpnn_state_dict, load_frozen_core)
+from neuropp.splits import file_hash, generate_split
 
 
 @contextmanager
@@ -140,6 +143,75 @@ class TensorProvenanceTests(unittest.TestCase):
             self.assertTrue(all(not parameter.requires_grad for parameter in core.prot_mpnn.parameters()))
             self.assertEqual(report["status"], "passed")
             self.assertEqual(report["checks"]["proteinmpnn_tensor_match"]["compared_tensors"], 2)
+            self.assertEqual(report["feature_signature"], FEATURE_CACHE_SIGNATURE)
+            self.assertEqual(FEATURE_CACHE_SIGNATURE,
+                             "55c5ee9e7e9c264ce3a110bb22a64ba3872726d976d2905f345635b4a83bb991")
+            self.assertEqual(report["feature_spec"]["torch"], str(torch.__version__))
+
+    def test_runtime_versions_preserve_existing_feature_cache_without_rewriting(self):
+        with synthetic_checkpoints() as root:
+            pdb_path = root / "synthetic.pdb"
+            pdb_path.write_text("".join(
+                f"ATOM  {i:5d}  {atom:<3} ALA A   1       0.000   0.000   0.000  1.00 90.00           C\n"
+                for i, atom in enumerate(("N", "CA", "C", "O"), 1)))
+            # The existing cache schema and signature, without any runtime fields.
+            metadata = {"feature_signature": "55c5ee9e7e9c264ce3a110bb22a64ba3872726d976d2905f345635b4a83bb991",
+                        "pdb_sha256": file_hash(pdb_path), "sequence": "A", "name": "synthetic.pdb"}
+            key = hashlib.sha256(json.dumps(metadata, sort_keys=True).encode()).hexdigest()
+            feature_dir = root / "features"
+            feature_dir.mkdir()
+            cache_path = feature_dir / (key + ".pt")
+            features = torch.arange(384, dtype=torch.float32).reshape(1, 384)
+            torch.save({"metadata": metadata, "features": features,
+                        "valid": torch.ones(1, dtype=torch.bool),
+                        "encoded_sequence": torch.zeros(1, dtype=torch.int64)}, cache_path)
+            before = cache_path.read_bytes()
+            runtime_signatures = []
+            for version in ("2.5.1+cpu", "2.6.0+cu124"):
+                with self.subTest(version=version), mock.patch.object(torch, "__version__", version):
+                    _, _, report = load_frozen_core(root)
+                    self.assertEqual(report["feature_signature"], metadata["feature_signature"])
+                    self.assertEqual(report["feature_spec"]["torch"], version)
+                    digest = hashlib.sha256(json.dumps(report["feature_spec"], sort_keys=True).encode()).hexdigest()
+                    self.assertEqual(report["runtime_provenance_signature"], digest)
+                    runtime_signatures.append(digest)
+                    record, path = load_existing_record("synthetic.pdb", pdb_path, feature_dir,
+                                                        report["feature_signature"])
+                    self.assertEqual(path, cache_path)
+                    self.assertTrue(torch.equal(torch.from_numpy(record.features), features))
+                    self.assertEqual(cache_path.read_bytes(), before)
+                    self.assertEqual(list(feature_dir.iterdir()), [cache_path])
+            self.assertNotEqual(*runtime_signatures)
+        protocol = json.loads((Path(__file__).resolve().parents[2] /
+                               "experiments/graph_swarm_v1/protocol.json").read_text())
+        self.assertEqual(protocol["provenance"]["feature_cache_signature"], FEATURE_CACHE_SIGNATURE)
+
+    def test_pinned_source_and_checkpoint_mismatches_stop_before_loading(self):
+        with synthetic_checkpoints() as root:
+            (root / "dataset_splits").mkdir()
+            (root / "dataset_splits/mega_splits.pkl").write_bytes(b"synthetic split fixture")
+            expected_hashes = {name: file_hash(root / name) for name in ARTIFACT_HASHES}
+            with mock.patch("neuropp.provenance.artifact_audit", side_effect=artifact_audit), mock.patch(
+                    "neuropp.provenance.ARTIFACT_HASHES", expected_hashes), mock.patch(
+                    "neuropp.provenance.subprocess.check_output", side_effect=[THERMOMPNN_COMMIT, ""] * 3):
+                self.assertEqual(artifact_audit(root)["status"], "pending")
+                for name in ("models/thermoMPNN_default.pt", "vanilla_model_weights/v_48_020.pt"):
+                    with self.subTest(checkpoint=name):
+                        path = root / name
+                        before = path.read_bytes()
+                        path.write_bytes(before + b"altered")
+                        with mock.patch.object(torch, "load") as loader:
+                            with self.assertRaisesRegex(ValueError, "pinned artifact mismatch"):
+                                load_frozen_core(root)
+                            loader.assert_not_called()
+                        path.write_bytes(before)
+                for commit, dirty in (("unverified-source", ""), (THERMOMPNN_COMMIT, " M transfer_model.py")):
+                    with self.subTest(commit=commit, dirty=dirty), mock.patch(
+                            "neuropp.provenance.subprocess.check_output", side_effect=[commit, dirty]):
+                        with mock.patch.object(torch, "load") as loader:
+                            with self.assertRaisesRegex(ValueError, "pinned artifact mismatch"):
+                                load_frozen_core(root)
+                            loader.assert_not_called()
 
     def test_frozen_core_with_altered_loaded_weights_fails_provenance(self):
         with synthetic_checkpoints(altered=True) as root:

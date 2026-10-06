@@ -10,6 +10,8 @@ ORIGINAL_COUNTS = {"train": 239, "val": 31, "test": 28}
 PROTECTED_SPLITS = frozenset({"head_holdout", "legacy_test"})
 ALPHABET = "ACDEFGHIKLMNPQRSTVWYX"
 THERMOMPNN_COMMIT = "370f76ec62bd929f7425e311d8df04a0d094990f"
+# Stage 1.1 verified frozen features; runtime software versions do not change cache identity.
+FEATURE_CACHE_SIGNATURE = "55c5ee9e7e9c264ce3a110bb22a64ba3872726d976d2905f345635b4a83bb991"
 ARTIFACT_HASHES = {
     "models/thermoMPNN_default.pt": "af449118ccfb4e34971d802321907ed82a8a035ae80f055bf8fc56009a4a838a",
     "vanilla_model_weights/v_48_020.pt": "c9cb4a671d79604111231f8dbfc7c590e06f1197453b7a6854ac6661a642f5bd",

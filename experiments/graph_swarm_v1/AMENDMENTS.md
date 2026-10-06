@@ -163,3 +163,22 @@ labels or legacy prediction/error tables are opened. No notebook is created or
 executed. Stage 1 graph/split settings and Stage 2 architecture remain unchanged.
 Affected files: `training.py`, its synthetic tests, `data_access.py`,
 `protocol.json`, and this amendment. No separate Stage 3 report is added.
+
+## Colab portability correction — 2026-10-06 (Europe/Moscow)
+
+Authorization: the owner's portability request, with clean parent
+`fe3c5d448ca48072cb5ab41a29de295216817796` on `swarm-advanced`; all 177 existing
+unit tests passed before edits. The previous feature signature hashed runtime
+PyTorch version, so a different Colab build could reject the verified cache.
+`FEATURE_CACHE_SIGNATURE` now pins the Stage 1.1 verified cache identity to
+`55c5ee9e7e9c264ce3a110bb22a64ba3872726d976d2905f345635b4a83bb991`.
+`audit["feature_signature"]` retains that identity; `feature_spec` still records
+runtime PyTorch/device and is hashed separately as `runtime_provenance_signature`.
+Run manifests/checkpoint metadata continue to record `pytorch_version`.
+Pinned source/checkpoint checks, exact ProteinMPNN tensor comparison, freezing,
+pre-head path and 384-dimensional layout remain required and unchanged.
+No feature cache is renamed or rewritten, and scientific settings are unchanged.
+The final notebook adds operational `OUTPUT_ROOT`: repository root by default,
+or an owner-selected persistent path, with directories created only by the run.
+Only synthetic unit tests and static notebook validation are performed; no
+notebook execution, real labels or protected evaluation are authorized here.

@@ -29,6 +29,8 @@
     "labels_separate_from_graph_and_model_inputs": true
   },
   "provenance": {
+    "feature_cache_signature": "55c5ee9e7e9c264ce3a110bb22a64ba3872726d976d2905f345635b4a83bb991",
+    "runtime_provenance": "feature_spec records runtime torch/device; runtime_provenance_signature hashes it separately from the stable cache identity",
     "thermompnn_commit": "370f76ec62bd929f7425e311d8df04a0d094990f",
     "checkpoint": "models/thermoMPNN_default.pt",
     "checkpoint_sha256": "af449118ccfb4e34971d802321907ed82a8a035ae80f055bf8fc56009a4a838a",

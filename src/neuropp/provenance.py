@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .protocol import ARTIFACT_HASHES, THERMOMPNN_COMMIT
+from .protocol import ARTIFACT_HASHES, FEATURE_CACHE_SIGNATURE, THERMOMPNN_COMMIT
 from .splits import file_hash
 
 
@@ -138,10 +138,10 @@ def load_frozen_core(thermompnn_dir):
                 "source_sha256": {name: file_hash(root / name) for name in ["protein_mpnn_utils.py", "transfer_model.py"]},
                 "model_config": OmegaConf.to_container(cfg.model, resolve=True),
                 "torch": str(torch.__version__), "device": "cpu"}
-        # Match the first experiment's JSON serialization exactly.
+        # Record runtime provenance separately from the verified Stage 1.1 cache identity.
         import hashlib
         import json
-        signature = hashlib.sha256(json.dumps(spec, sort_keys=True).encode()).hexdigest()
+        runtime_signature = hashlib.sha256(json.dumps(spec, sort_keys=True).encode()).hexdigest()
         audit["checks"]["proteinmpnn_frozen"] = {"passed": initially_frozen}
         audit["checks"]["feature_path"] = {
             "passed": True, "dimension": 384,
@@ -149,7 +149,8 @@ def load_frozen_core(thermompnn_dir):
             "excluded": ["light_attention", "both_out", "ddg_out"],
             "evidence": "pinned source; extraction function invokes only prot_mpnn; real-data hooks checked separately"}
         audit.update(status="passed", reason="pinned artifacts, exact ProteinMPNN tensor identity and runtime freezing verified",
-                     feature_signature=signature, feature_spec=spec)
+                     feature_signature=FEATURE_CACHE_SIGNATURE, feature_spec=spec,
+                     runtime_provenance_signature=runtime_signature)
         return core, utils, audit
     finally:
         sys.path.pop(0)
